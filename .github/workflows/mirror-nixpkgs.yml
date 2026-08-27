@@ -1,0 +1,29 @@
+name: Mirror Nixpkgs Branches
+
+on:
+  schedule:
+    - cron: "0 0 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mirror upstream branches
+        env:
+          NIX_BRANCH_TOKEN: ${{ secrets.NIX_BRANCH_TOKEN }}
+          TARGET_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          : "${NIX_BRANCH_TOKEN:?Set the NIX_BRANCH_TOKEN repository secret.}"
+
+          for branch in nixos-26.05 nixos-unstable; do
+            git clone --depth=1 --branch "$branch" \
+              "https://github.com/NixOS/nixpkgs.git" "$branch"
+            git -C "$branch" remote set-url origin \
+              "https://x-access-token:${NIX_BRANCH_TOKEN}@github.com/${TARGET_REPOSITORY}.git"
+            git -C "$branch" push --force origin "HEAD:refs/heads/$branch"
+          done
