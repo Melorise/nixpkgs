@@ -20,7 +20,10 @@ jobs:
           set -euo pipefail
           : "${NIX_BRANCH_TOKEN:?Set the NIX_BRANCH_TOKEN repository secret.}"
 
-          git clone --bare "https://github.com/NixOS/nixpkgs.git" nixpkgs.git
+          git clone --bare --single-branch --branch nixos-26.05 \
+            "https://github.com/NixOS/nixpkgs.git" nixpkgs.git
+          git -C nixpkgs.git fetch origin \
+            "refs/heads/nixos-unstable:refs/heads/nixos-unstable"
           git -C nixpkgs.git remote add target \
             "https://x-access-token:${NIX_BRANCH_TOKEN}@github.com/${TARGET_REPOSITORY}.git"
 
