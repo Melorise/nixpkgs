@@ -20,14 +20,26 @@ jobs:
           set -euo pipefail
           : "${NIX_BRANCH_TOKEN:?Set the NIX_BRANCH_TOKEN repository secret.}"
 
-          git clone --bare --single-branch --branch nixos-26.05 \
-            "https://github.com/NixOS/nixpkgs.git" nixpkgs.git
-          git -C nixpkgs.git fetch origin \
-            "refs/heads/nixos-unstable:refs/heads/nixos-unstable"
-          git -C nixpkgs.git remote add target \
-            "https://x-access-token:${NIX_BRANCH_TOKEN}@github.com/${TARGET_REPOSITORY}.git"
-
           for branch in nixos-26.05 nixos-unstable; do
-            git -C nixpkgs.git push --force target \
-              "refs/heads/$branch:refs/heads/$branch"
+            archive="$(mktemp)"
+            checkout="$(mktemp -d)"
+            trap 'rm -f "$archive"; rm -rf "$checkout"' EXIT
+
+            curl --fail --location --retry 3 \
+              "https://codeload.github.com/NixOS/nixpkgs/tar.gz/refs/heads/$branch" \
+              --output "$archive"
+            tar --extract --gzip --file "$archive" --strip-components=1 --directory "$checkout"
+
+            git -C "$checkout" init
+            git -C "$checkout" config user.name "github-actions[bot]"
+            git -C "$checkout" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C "$checkout" add --all
+            git -C "$checkout" commit --message "Snapshot of NixOS/nixpkgs $branch"
+            git -C "$checkout" remote add target \
+              "https://x-access-token:${NIX_BRANCH_TOKEN}@github.com/${TARGET_REPOSITORY}.git"
+            git -C "$checkout" push --force target "HEAD:refs/heads/$branch"
+
+            rm -f "$archive"
+            rm -rf "$checkout"
+            trap - EXIT
           done
