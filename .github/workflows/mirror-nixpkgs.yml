@@ -23,7 +23,6 @@ jobs:
           for branch in nixos-26.05 nixos-unstable; do
             archive="$(mktemp)"
             checkout="$(mktemp -d)"
-            trap 'rm -f "$archive"; rm -rf "$checkout"' EXIT
 
             curl --fail --location --retry 3 \
               "https://codeload.github.com/NixOS/nixpkgs/tar.gz/refs/heads/$branch" \
@@ -39,7 +38,4 @@ jobs:
               "https://x-access-token:${NIX_BRANCH_TOKEN}@github.com/${TARGET_REPOSITORY}.git"
             git -C "$checkout" push --force target "HEAD:refs/heads/$branch"
 
-            rm -f "$archive"
-            rm -rf "$checkout"
-            trap - EXIT
           done
