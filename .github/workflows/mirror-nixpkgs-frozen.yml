@@ -1,0 +1,39 @@
+name: Mirror Nixpkgs Frozen Branches
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mirror upstream branches
+        env:
+          NIX_BRANCH_TOKEN: ${{ secrets.NIX_BRANCH_TOKEN }}
+          TARGET_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          : "${NIX_BRANCH_TOKEN:?Set the NIX_BRANCH_TOKEN repository secret.}"
+
+          for branch in nixos-26.05 nixos-unstable; do
+            archive="$(mktemp)"
+            checkout="$(mktemp -d)"
+
+            curl --fail --location --retry 3 \
+              "https://codeload.github.com/NixOS/nixpkgs/tar.gz/refs/heads/$branch" \
+              --output "$archive"
+            tar --extract --gzip --file "$archive" --strip-components=1 --directory "$checkout"
+
+            git -C "$checkout" init
+            git -C "$checkout" config user.name "github-actions[bot]"
+            git -C "$checkout" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C "$checkout" add --all
+            git -C "$checkout" commit --message "Snapshot of NixOS/nixpkgs $branch"
+            git -C "$checkout" remote add target \
+              "https://x-access-token:${NIX_BRANCH_TOKEN}@github.com/${TARGET_REPOSITORY}.git"
+            git -C "$checkout" push --force target "HEAD:refs/heads/frozen/$branch"
+
+          done
